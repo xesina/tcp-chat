@@ -1,10 +1,10 @@
 package test
 
 import (
-	"github.com/Applifier/golang-backend-assignment/internal/client"
-	"github.com/Applifier/golang-backend-assignment/internal/server"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xesina/message-delivery/internal/client"
+	"github.com/xesina/message-delivery/internal/server"
 	"net"
 	"testing"
 	"time"
