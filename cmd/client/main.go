@@ -1,7 +1,25 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/xesina/message-delivery/internal/client"
+	"net"
+	"os"
+	"time"
+)
+
+const serverPort = 50000
 
 func main() {
-	fmt.Println("Hello from client!")
+	cl := client.New()
+	tcpAddr := net.TCPAddr{Port: serverPort}
+
+	err := cl.Connect(&tcpAddr)
+	if err != nil {
+		fmt.Println("connection to server failed: ", err)
+		os.Exit(1)
+	}
+
+	time.Sleep(time.Second * 10)
+	cl.Close()
 }
