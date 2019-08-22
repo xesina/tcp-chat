@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-const testPort = 50005
+const testAddr = "localhost:50005"
 
 type ServerTestSuite struct {
 	suite.Suite
@@ -17,8 +17,7 @@ type ServerTestSuite struct {
 
 func (suite *ServerTestSuite) SetupSuite() {
 	suite.server = New()
-	addr := fmt.Sprintf("localhost:%d", testPort)
-	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
+	tcpAddr, err := net.ResolveTCPAddr("tcp", testAddr)
 	if err != nil {
 		suite.FailNow("resolving address failed %s", err)
 	}
@@ -34,7 +33,10 @@ func (suite *ServerTestSuite) SetupSuite() {
 }
 
 func (suite *ServerTestSuite) TearDownTest() {
+	suite.server.Lock()
 	suite.server.clients = make(map[net.Conn]uint64)
+	suite.server.Unlock()
+
 }
 
 func (suite *ServerTestSuite) TearDownSuite() {
@@ -111,4 +113,10 @@ func (suite *ServerTestSuite) TestDeregisterClient() {
 	deregisterAll(tt)
 	suite.Equal(0, suite.clientsCount())
 
+}
+
+func (suite *ServerTestSuite) TestStart() {
+	conn, err := net.Dial("tcp", testAddr)
+	defer conn.Close()
+	suite.NoError(err)
 }
