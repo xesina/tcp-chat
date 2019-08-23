@@ -119,3 +119,13 @@ func (suite *ServerTestSuite) TestStart() {
 	defer conn.Close()
 	suite.NoError(err)
 }
+
+func (suite *ServerTestSuite) TestRegisterHandlers() {
+	suite.server.hl.RLock()
+	l := len(suite.server.handler)
+	suite.server.hl.RUnlock()
+
+	// to ensure each time we register handler we update the test to
+	// control the registration of the handlers
+	suite.Equal(1, l)
+}
