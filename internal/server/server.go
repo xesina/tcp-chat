@@ -91,7 +91,6 @@ func (server *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
 	notify := make(chan error)
 
-	fmt.Println("new Connection received")
 	server.registerClient(conn)
 
 	go func() {
@@ -119,17 +118,17 @@ func (server *Server) handleConnection(conn net.Conn) {
 	for {
 		select {
 		case err := <-notify:
-			fmt.Println("got an error", err)
+			fmt.Println("server: got an error:", err)
 
 			if err == io.EOF {
 				server.deregisterClient(conn)
-				fmt.Println("connection dropped message", err)
+				fmt.Println("server: connection dropped message", err)
 				return
 			}
 
 		case <-time.After(time.Second * 20):
 			server.cl.RLock()
-			fmt.Printf("connection id: %d still alive\n", server.clients[conn])
+			fmt.Printf("server: connection id: %d still alive\n", server.clients[conn])
 			server.cl.RUnlock()
 		}
 	}

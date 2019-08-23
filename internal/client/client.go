@@ -32,13 +32,11 @@ func (c *Client) Connect(serverAddr *net.TCPAddr) error {
 }
 
 func (c *Client) Close() error {
-	fmt.Println("Close the connection to the server")
 	c.conn.Close()
 	return nil
 }
 
 func (c *Client) WhoAmI() (uint64, error) {
-	fmt.Println("Fetching the ID from the server")
 	msg := message.NewIdentity()
 	response := bufio.NewReader(c.conn)
 	_, err := c.conn.Write(msg.Marshal())

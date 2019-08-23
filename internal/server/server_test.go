@@ -3,8 +3,10 @@ package server
 import (
 	"fmt"
 	"github.com/stretchr/testify/suite"
+	"github.com/xesina/message-delivery/internal/client"
 	"net"
 	"os"
+	"sync/atomic"
 	"testing"
 )
 
@@ -32,12 +34,6 @@ func (suite *ServerTestSuite) SetupSuite() {
 
 }
 
-func (suite *ServerTestSuite) TearDownTest() {
-	suite.server.cl.Lock()
-	suite.server.clients = make(map[net.Conn]uint64)
-	suite.server.cl.Unlock()
-}
-
 func (suite *ServerTestSuite) TearDownSuite() {
 	//suite.server.Stop()
 }
@@ -58,9 +54,15 @@ func (suite *ServerTestSuite) handlersCount() int {
 	return len(suite.server.handler)
 }
 
-func (suite *ServerTestSuite) TestRegisterClient() {
-	fmt.Println("running TestRegisterMultipleClient")
+func (suite *ServerTestSuite) TestRegisterHandlers() {
+	l := suite.handlersCount()
 
+	// to ensure each time we register handler we update the test to
+	// control the registration of the handlers
+	suite.Equal(1, l)
+}
+
+func (suite *ServerTestSuite) TestRegisterClient() {
 	type connMock struct {
 		net.Conn
 	}
@@ -79,9 +81,7 @@ func (suite *ServerTestSuite) TestRegisterClient() {
 	}
 }
 
-func (suite *ServerTestSuite) TestDeregisterClient() {
-	fmt.Println("running TestRegisterMultipleClient")
-
+func (suite *ServerTestSuite) TestDeregisterClients() {
 	type connMock struct {
 		net.Conn
 	}
@@ -117,7 +117,6 @@ func (suite *ServerTestSuite) TestDeregisterClient() {
 	registerAll(tt)
 	deregisterAll(tt)
 	suite.Equal(0, suite.clientsCount())
-
 }
 
 func (suite *ServerTestSuite) TestStart() {
@@ -126,25 +125,12 @@ func (suite *ServerTestSuite) TestStart() {
 	suite.NoError(err)
 }
 
-func (suite *ServerTestSuite) TestRegisterHandlers() {
-	l := suite.handlersCount()
-
-	// to ensure each time we register handler we update the test to
-	// control the registration of the handlers
-	suite.Equal(1, l)
-}
-
 func (suite *ServerTestSuite) TestHandleFunc() {
 	l := suite.handlersCount()
 
 	msgName := "testHandler"
 	testHandler := func(conn net.Conn) error { return nil }
 	suite.server.HandleFunc(msgName, testHandler)
-	defer func() {
-		suite.server.hl.Lock()
-		delete(suite.server.handler, msgName)
-		suite.server.hl.Unlock()
-	}()
 
 	newLen := suite.handlersCount()
 	suite.Equal(l+1, newLen)
@@ -153,4 +139,26 @@ func (suite *ServerTestSuite) TestHandleFunc() {
 	_, ok := suite.server.handler[msgName]
 	suite.True(ok)
 	suite.server.hl.RUnlock()
+
+	suite.server.hl.Lock()
+	delete(suite.server.handler, msgName)
+	suite.server.hl.Unlock()
+}
+
+func (suite *ServerTestSuite) TestHandleIdentity() {
+	// hard reset id counter to achieve an expected id
+	atomic.StoreUint64(&suite.server.id, 0)
+
+	cl := client.New()
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp", testAddr)
+	suite.NoError(err)
+
+	err = cl.Connect(tcpAddr)
+	defer cl.Close()
+	suite.NoError(err)
+
+	id, err := cl.WhoAmI()
+	suite.NoError(err)
+	suite.Equal(uint64(1), id)
 }
