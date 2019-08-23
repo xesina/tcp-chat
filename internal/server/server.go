@@ -29,6 +29,7 @@ func New() *Server {
 		handler: make(map[string]HandleFunc),
 	}
 
+	s.HandleFunc("IDENTITY", s.handleIdentity)
 	return s
 }
 

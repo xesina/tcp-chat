@@ -33,9 +33,9 @@ func (suite *ServerTestSuite) SetupSuite() {
 }
 
 func (suite *ServerTestSuite) TearDownTest() {
-	suite.server.Lock()
+	suite.server.cl.Lock()
 	suite.server.clients = make(map[net.Conn]uint64)
-	suite.server.Unlock()
+	suite.server.cl.Unlock()
 
 }
 
@@ -48,8 +48,8 @@ func TestServerTestSuite(t *testing.T) {
 }
 
 func (suite *ServerTestSuite) clientsCount() int {
-	suite.server.RLock()
-	defer suite.server.RUnlock()
+	suite.server.cl.RLock()
+	defer suite.server.cl.RUnlock()
 	return len(suite.server.clients)
 }
 
