@@ -7,12 +7,14 @@ import (
 	"log"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 type Server struct {
 	listener *net.TCPListener
 
+	id uint64
 	sync.RWMutex
 	clients map[net.Conn]uint64
 }
@@ -56,12 +58,8 @@ func (server *Server) Stop() error {
 }
 
 func (server *Server) registerClient(c net.Conn) {
-	server.RLock()
-	l := len(server.clients)
-	server.RUnlock()
-
 	server.Lock()
-	server.clients[c] = uint64(l + 1)
+	server.clients[c] = atomic.AddUint64(&server.id, 1)
 	server.Unlock()
 }
 
@@ -83,7 +81,6 @@ func (server *Server) handleConnection(conn net.Conn) {
 			payload, err := bufio.NewReader(conn).ReadString('\n')
 			if err != nil {
 				notify <- err
-				return
 			}
 			// basic echo server
 			conn.Write([]byte(payload))
@@ -93,8 +90,10 @@ func (server *Server) handleConnection(conn net.Conn) {
 	for {
 		select {
 		case err := <-notify:
-			server.deregisterClient(conn)
+			fmt.Println("got an error", err)
+
 			if err == io.EOF {
+				server.deregisterClient(conn)
 				fmt.Println("connection dropped message", err)
 				return
 			}
