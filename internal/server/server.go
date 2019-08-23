@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -14,15 +15,21 @@ import (
 type Server struct {
 	listener *net.TCPListener
 
-	id uint64
-	sync.RWMutex
+	id      uint64
+	cl      sync.RWMutex
 	clients map[net.Conn]uint64
+
+	hl      sync.RWMutex
+	handler map[string]HandleFunc
 }
 
 func New() *Server {
-	return &Server{
+	s := &Server{
 		clients: make(map[net.Conn]uint64),
+		handler: make(map[string]HandleFunc),
 	}
+
+	return s
 }
 
 func (server *Server) Start(laddr *net.TCPAddr) error {
@@ -58,15 +65,21 @@ func (server *Server) Stop() error {
 }
 
 func (server *Server) registerClient(c net.Conn) {
-	server.Lock()
+	server.cl.Lock()
 	server.clients[c] = atomic.AddUint64(&server.id, 1)
-	server.Unlock()
+	server.cl.Unlock()
 }
 
 func (server *Server) deregisterClient(conn net.Conn) {
-	server.Lock()
+	server.cl.Lock()
 	delete(server.clients, conn)
-	server.Unlock()
+	server.cl.Unlock()
+}
+
+func (server *Server) HandleFunc(name string, f HandleFunc) {
+	server.hl.Lock()
+	server.handler[name] = f
+	server.hl.Unlock()
 }
 
 func (server *Server) handleConnection(conn net.Conn) {
@@ -78,12 +91,25 @@ func (server *Server) handleConnection(conn net.Conn) {
 
 	go func() {
 		for {
-			payload, err := bufio.NewReader(conn).ReadString('\n')
+			msg, err := bufio.NewReader(conn).ReadString('\n')
+			msg = strings.ToUpper(strings.TrimSpace(msg))
+
+			if err != nil {
+				notify <- err
+				return
+			}
+
+			server.hl.RLock()
+			handleCommand, ok := server.handler[msg]
+			server.hl.RUnlock()
+			if !ok {
+				handleCommand = server.handleUnknown
+			}
+			err = handleCommand(conn)
 			if err != nil {
 				notify <- err
 			}
-			// basic echo server
-			conn.Write([]byte(payload))
+
 		}
 	}()
 
@@ -99,9 +125,9 @@ func (server *Server) handleConnection(conn net.Conn) {
 			}
 
 		case <-time.After(time.Second * 20):
-			server.RLock()
+			server.cl.RLock()
 			fmt.Printf("connection id: %d still alive\n", server.clients[conn])
-			server.RUnlock()
+			server.cl.RUnlock()
 		}
 	}
 }
