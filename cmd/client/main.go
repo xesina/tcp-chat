@@ -20,6 +20,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	id, err := cl.WhoAmI()
+	if err != nil {
+		fmt.Println("WhoAmI message failed:", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("received id:", id)
+
 	time.Sleep(time.Second * 10)
 	cl.Close()
 }

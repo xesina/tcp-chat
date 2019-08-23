@@ -1,8 +1,12 @@
 package client
 
 import (
+	"bufio"
 	"fmt"
+	"github.com/xesina/message-delivery/internal/message"
 	"net"
+	"strconv"
+	"strings"
 )
 
 type IncomingMessage struct {
@@ -34,8 +38,26 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) WhoAmI() (uint64, error) {
-	fmt.Println("TODO: Fetch the ID from the server")
-	return 0, nil
+	fmt.Println("Fetching the ID from the server")
+	msg := message.NewIdentity()
+	response := bufio.NewReader(c.conn)
+	_, err := c.conn.Write(msg.Marshal())
+	if err != nil {
+		return 0, fmt.Errorf("client: sending identity message failed: %s", err)
+	}
+
+	r, err := response.ReadString(byte('\n'))
+	if err != nil {
+		return 0, err
+	}
+	r = strings.TrimSpace(r)
+
+	id, err := strconv.Atoi(string(r))
+	if err != nil {
+		return 0, fmt.Errorf("client: inavlid id received from the server: %s", err)
+	}
+
+	return uint64(id), nil
 }
 
 func (c *Client) ListClientIDs() ([]uint64, error) {

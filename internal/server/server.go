@@ -1,12 +1,11 @@
 package server
 
 import (
-	"bufio"
 	"fmt"
+	"github.com/xesina/message-delivery/internal/message"
 	"io"
 	"log"
 	"net"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -29,8 +28,13 @@ func New() *Server {
 		handler: make(map[string]HandleFunc),
 	}
 
-	s.HandleFunc("IDENTITY", s.handleIdentity)
+	s.registerHandlers()
+
 	return s
+}
+
+func (server *Server) registerHandlers() {
+	server.HandleFunc(message.IdentityMsg, server.handleIdentity)
 }
 
 func (server *Server) Start(laddr *net.TCPAddr) error {
@@ -92,9 +96,7 @@ func (server *Server) handleConnection(conn net.Conn) {
 
 	go func() {
 		for {
-			msg, err := bufio.NewReader(conn).ReadString('\n')
-			msg = strings.ToUpper(strings.TrimSpace(msg))
-
+			msg, err := message.Read(conn)
 			if err != nil {
 				notify <- err
 				return

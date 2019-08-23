@@ -36,7 +36,6 @@ func (suite *ServerTestSuite) TearDownTest() {
 	suite.server.cl.Lock()
 	suite.server.clients = make(map[net.Conn]uint64)
 	suite.server.cl.Unlock()
-
 }
 
 func (suite *ServerTestSuite) TearDownSuite() {
