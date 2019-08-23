@@ -8,6 +8,7 @@ import (
 	"os"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 const testAddr = "localhost:50005"
@@ -67,7 +68,7 @@ func (suite *ServerTestSuite) TestRegisterHandlers() {
 
 	// to ensure each time we register handler we update the test to
 	// control the registration of the handlers
-	suite.Equal(1, l)
+	suite.Equal(2, l)
 }
 
 func (suite *ServerTestSuite) TestRegisterClient() {
@@ -207,4 +208,64 @@ func (suite *ServerTestSuite) TestListClientIDs() {
 			suite.server.deregisterClient(conn)
 		}
 	}
+}
+
+func (suite *ServerTestSuite) TestHandleListWithSingleClient() {
+	suite.resetIdCounter()
+
+	cl := client.New()
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp", testAddr)
+	suite.NoError(err)
+
+	err = cl.Connect(tcpAddr)
+	defer cl.Close()
+	suite.NoError(err)
+
+	ids, err := cl.ListClientIDs()
+	suite.NoError(err)
+	suite.ElementsMatch([]uint64{}, ids)
+}
+
+func (suite *ServerTestSuite) TestHandleListWithMultipleClient() {
+	suite.resetIdCounter()
+
+	cl1 := client.New()
+	tcpAddr, err := net.ResolveTCPAddr("tcp", testAddr)
+	suite.NoError(err)
+	err = cl1.Connect(tcpAddr)
+	defer cl1.Close()
+	suite.NoError(err)
+
+	cl2 := client.New()
+	tcpAddr, err = net.ResolveTCPAddr("tcp", testAddr)
+	suite.NoError(err)
+	err = cl2.Connect(tcpAddr)
+	defer cl2.Close()
+	suite.NoError(err)
+
+	cl3 := client.New()
+	tcpAddr, err = net.ResolveTCPAddr("tcp", testAddr)
+	suite.NoError(err)
+	// intentionally we won't defer this client's Close() and we
+	// manually close to test another case
+	err = cl3.Connect(tcpAddr)
+	suite.NoError(err)
+
+	time.Sleep(100 * time.Millisecond)
+
+	// checking with client2 so should get ids: 1,3
+	expedtedIds := []uint64{1, 3}
+	ids, err := cl2.ListClientIDs()
+	suite.NoError(err)
+	suite.Len(ids, len(expedtedIds))
+	suite.ElementsMatch(expedtedIds, ids)
+
+	// closing client3 and checking with client1 to get only id:2
+	cl3.Close()
+	expedtedIds = []uint64{2}
+	ids, err = cl1.ListClientIDs()
+	suite.NoError(err)
+	suite.Len(ids, len(expedtedIds))
+	suite.ElementsMatch(expedtedIds, ids)
 }

@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	IdentityMsg  = "IDENTITY"
+	IdentityMsg = "IDENTITY"
+	ListMsg     = "LIST"
 )
 
 func Read(r io.Reader) (string, error) {
@@ -32,4 +33,14 @@ func NewIdentity() *Identity {
 
 func (m Identity) Marshal() []byte {
 	return []byte(fmt.Sprintf("%s\n", IdentityMsg))
+}
+
+type List struct{}
+
+func NewList() *List {
+	return &List{}
+}
+
+func (m List) Marshal() []byte {
+	return []byte(fmt.Sprintf("%s\n", ListMsg))
 }

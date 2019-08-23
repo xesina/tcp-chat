@@ -28,6 +28,14 @@ func main() {
 
 	fmt.Println("received id:", id)
 
+	ids, err := cl.ListClientIDs()
+	if err != nil {
+		fmt.Println("List message failed:", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("received ids:", ids)
+
 	time.Sleep(time.Second * 10)
 	cl.Close()
 }

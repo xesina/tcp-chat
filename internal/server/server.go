@@ -15,10 +15,10 @@ type Server struct {
 	listener *net.TCPListener
 
 	id      uint64
-	cl      sync.RWMutex
+	cl      *sync.RWMutex
 	clients map[net.Conn]uint64
 
-	hl      sync.RWMutex
+	hl      *sync.RWMutex
 	handler map[string]HandleFunc
 }
 
@@ -26,6 +26,8 @@ func New() *Server {
 	s := &Server{
 		clients: make(map[net.Conn]uint64),
 		handler: make(map[string]HandleFunc),
+		cl:      &sync.RWMutex{},
+		hl:      &sync.RWMutex{},
 	}
 
 	s.registerHandlers()
@@ -35,6 +37,7 @@ func New() *Server {
 
 func (server *Server) registerHandlers() {
 	server.HandleFunc(message.IdentityMsg, server.handleIdentity)
+	server.HandleFunc(message.ListMsg, server.handleList)
 }
 
 func (server *Server) Start(laddr *net.TCPAddr) error {
@@ -62,10 +65,10 @@ func (server *Server) Start(laddr *net.TCPAddr) error {
 func (server *Server) ListClientIDs() []uint64 {
 	var ids []uint64
 	server.cl.RLock()
+	defer server.cl.RUnlock()
 	for _, id := range server.clients {
 		ids = append(ids, id)
 	}
-	server.cl.RUnlock()
 	return ids
 }
 

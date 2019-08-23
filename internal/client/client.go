@@ -59,8 +59,35 @@ func (c *Client) WhoAmI() (uint64, error) {
 }
 
 func (c *Client) ListClientIDs() ([]uint64, error) {
-	fmt.Println("TODO: Fetch the IDs from the server")
-	return nil, nil
+	var ids []uint64
+
+	msg := message.NewList()
+	response := bufio.NewReader(c.conn)
+	_, err := c.conn.Write(msg.Marshal())
+	if err != nil {
+		return ids, fmt.Errorf("client: sending list message failed: %s", err)
+	}
+
+	r, err := response.ReadString(byte('\n'))
+	if err != nil {
+		return ids, err
+	}
+
+	r = strings.TrimSpace(r)
+	if r == "" {
+		return ids, nil
+	}
+	rr := strings.Split(r, ",")
+
+	for _, id := range rr {
+		i, err := strconv.ParseUint(id, 10, 64)
+		if err != nil {
+			return ids, fmt.Errorf("client: inavlid id in list received from the server: %s", err)
+		}
+		ids = append(ids, i)
+	}
+
+	return ids, nil
 }
 
 func (c *Client) SendMsg(recipients []uint64, body []byte) error {
