@@ -52,6 +52,12 @@ func (suite *ServerTestSuite) clientsCount() int {
 	return len(suite.server.clients)
 }
 
+func (suite *ServerTestSuite) handlersCount() int {
+	suite.server.hl.RLock()
+	defer suite.server.hl.RUnlock()
+	return len(suite.server.handler)
+}
+
 func (suite *ServerTestSuite) TestRegisterClient() {
 	fmt.Println("running TestRegisterMultipleClient")
 
@@ -121,11 +127,30 @@ func (suite *ServerTestSuite) TestStart() {
 }
 
 func (suite *ServerTestSuite) TestRegisterHandlers() {
-	suite.server.hl.RLock()
-	l := len(suite.server.handler)
-	suite.server.hl.RUnlock()
+	l := suite.handlersCount()
 
 	// to ensure each time we register handler we update the test to
 	// control the registration of the handlers
 	suite.Equal(1, l)
+}
+
+func (suite *ServerTestSuite) TestHandleFunc() {
+	l := suite.handlersCount()
+
+	msgName := "testHandler"
+	testHandler := func(conn net.Conn) error { return nil }
+	suite.server.HandleFunc(msgName, testHandler)
+	defer func() {
+		suite.server.hl.Lock()
+		delete(suite.server.handler, msgName)
+		suite.server.hl.Unlock()
+	}()
+
+	newLen := suite.handlersCount()
+	suite.Equal(l+1, newLen)
+
+	suite.server.hl.RLock()
+	_, ok := suite.server.handler[msgName]
+	suite.True(ok)
+	suite.server.hl.RUnlock()
 }
