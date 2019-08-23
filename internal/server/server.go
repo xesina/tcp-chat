@@ -60,8 +60,13 @@ func (server *Server) Start(laddr *net.TCPAddr) error {
 }
 
 func (server *Server) ListClientIDs() []uint64 {
-	fmt.Println("TODO: Return the IDs of the connected clients")
-	return []uint64{}
+	var ids []uint64
+	server.cl.RLock()
+	for _, id := range server.clients {
+		ids = append(ids, id)
+	}
+	server.cl.RUnlock()
+	return ids
 }
 
 func (server *Server) Stop() error {

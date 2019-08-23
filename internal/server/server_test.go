@@ -12,6 +12,10 @@ import (
 
 const testAddr = "localhost:50005"
 
+type connMock struct {
+	net.Conn
+}
+
 type ServerTestSuite struct {
 	suite.Suite
 	server *Server
@@ -54,6 +58,10 @@ func (suite *ServerTestSuite) handlersCount() int {
 	return len(suite.server.handler)
 }
 
+func (suite *ServerTestSuite) resetIdCounter() {
+	atomic.StoreUint64(&suite.server.id, 0)
+}
+
 func (suite *ServerTestSuite) TestRegisterHandlers() {
 	l := suite.handlersCount()
 
@@ -82,10 +90,6 @@ func (suite *ServerTestSuite) TestRegisterClient() {
 }
 
 func (suite *ServerTestSuite) TestDeregisterClients() {
-	type connMock struct {
-		net.Conn
-	}
-
 	tt := []struct {
 		conn net.Conn
 	}{
@@ -146,8 +150,7 @@ func (suite *ServerTestSuite) TestHandleFunc() {
 }
 
 func (suite *ServerTestSuite) TestHandleIdentity() {
-	// hard reset id counter to achieve an expected id
-	atomic.StoreUint64(&suite.server.id, 0)
+	suite.resetIdCounter()
 
 	cl := client.New()
 
@@ -161,4 +164,47 @@ func (suite *ServerTestSuite) TestHandleIdentity() {
 	id, err := cl.WhoAmI()
 	suite.NoError(err)
 	suite.Equal(uint64(1), id)
+}
+
+func (suite *ServerTestSuite) TestListClientIDs() {
+	tt := []struct {
+		conns []*connMock
+		want  []uint64
+	}{
+		{
+			conns: []*connMock{
+				{},
+			},
+			want: []uint64{1},
+		},
+		{
+			conns: []*connMock{},
+			want:  []uint64{},
+		},
+		{
+			conns: []*connMock{
+				{},
+				{},
+				{},
+				{},
+			},
+			want: []uint64{1, 2, 3, 4},
+		},
+	}
+
+	for _, tc := range tt {
+		suite.resetIdCounter()
+
+		for _, conn := range tc.conns {
+			suite.server.registerClient(conn)
+		}
+
+		ids := suite.server.ListClientIDs()
+		suite.Equal(len(tc.want), len(ids))
+		suite.ElementsMatch(tc.want, ids)
+
+		for _, conn := range tc.conns {
+			suite.server.deregisterClient(conn)
+		}
+	}
 }
