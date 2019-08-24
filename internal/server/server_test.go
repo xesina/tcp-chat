@@ -284,3 +284,90 @@ func (suite *ServerTestSuite) TestHandleListWithMultipleClient() {
 	suite.Len(ids, len(expedtedIds))
 	suite.ElementsMatch(expedtedIds, ids)
 }
+
+func (suite *ServerTestSuite) TestSendToOneClient() {
+	suite.resetIdCounter()
+
+	cl1 := client.New()
+	tcpAddr, err := net.ResolveTCPAddr("tcp", testAddr)
+	suite.NoError(err)
+	err = cl1.Connect(tcpAddr)
+	defer cl1.Close()
+	suite.NoError(err)
+
+	cl1Ch := make(chan client.IncomingMessage)
+	go cl1.HandleIncomingMessages(cl1Ch)
+
+	cl2 := client.New()
+	tcpAddr, err = net.ResolveTCPAddr("tcp", testAddr)
+	suite.NoError(err)
+	err = cl2.Connect(tcpAddr)
+	defer cl2.Close()
+	suite.NoError(err)
+
+	cl2Ch := make(chan client.IncomingMessage)
+	go cl2.HandleIncomingMessages(cl2Ch)
+
+	time.Sleep(100 * time.Millisecond)
+
+	receiver := uint64(1)
+	expectedSenderId := uint64(2)
+	expectedBody := "Hello"
+
+	err = cl2.SendMsg([]uint64{receiver}, []byte(expectedBody))
+	suite.NoError(err)
+	incomingFromCl2 := <-cl1Ch
+	suite.Equal(incomingFromCl2.SenderID, expectedSenderId)
+	suite.Equal(string(incomingFromCl2.Body), expectedBody)
+}
+
+func (suite *ServerTestSuite) TestSendToTwoClient() {
+	suite.resetIdCounter()
+
+	cl1 := client.New()
+	tcpAddr, err := net.ResolveTCPAddr("tcp", testAddr)
+	suite.NoError(err)
+	err = cl1.Connect(tcpAddr)
+	defer cl1.Close()
+	suite.NoError(err)
+
+	cl1Ch := make(chan client.IncomingMessage)
+	go cl1.HandleIncomingMessages(cl1Ch)
+
+	cl2 := client.New()
+	tcpAddr, err = net.ResolveTCPAddr("tcp", testAddr)
+	suite.NoError(err)
+	err = cl2.Connect(tcpAddr)
+	defer cl2.Close()
+	suite.NoError(err)
+
+	cl2Ch := make(chan client.IncomingMessage)
+	go cl2.HandleIncomingMessages(cl2Ch)
+
+	cl3 := client.New()
+	tcpAddr, err = net.ResolveTCPAddr("tcp", testAddr)
+	suite.NoError(err)
+	err = cl3.Connect(tcpAddr)
+	defer cl3.Close()
+	suite.NoError(err)
+
+	cl3Ch := make(chan client.IncomingMessage)
+	go cl3.HandleIncomingMessages(cl3Ch)
+
+	time.Sleep(100 * time.Millisecond)
+
+	receivers := []uint64{1, 2}
+	expectedSenderId := uint64(3)
+	expectedBody := "Hello"
+
+	err = cl3.SendMsg(receivers, []byte(expectedBody))
+	suite.NoError(err)
+
+	incomingFromCl3 := <-cl1Ch
+	suite.Equal(incomingFromCl3.SenderID, expectedSenderId)
+	suite.Equal(string(incomingFromCl3.Body), expectedBody)
+
+	incomingFromCl2 := <-cl2Ch
+	suite.Equal(incomingFromCl2.SenderID, expectedSenderId)
+	suite.Equal(string(incomingFromCl2.Body), expectedBody)
+}
