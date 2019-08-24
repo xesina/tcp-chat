@@ -16,16 +16,11 @@ type IncomingMessage struct {
 }
 
 type Client struct {
-	conn       net.Conn
-	identityCh chan []byte
-	listCh     chan []byte
+	conn net.Conn
 }
 
 func New() *Client {
-	return &Client{
-		identityCh: make(chan []byte),
-		listCh:     make(chan []byte),
-	}
+	return &Client{}
 }
 
 func (c *Client) Connect(serverAddr *net.TCPAddr) error {
@@ -39,20 +34,22 @@ func (c *Client) Connect(serverAddr *net.TCPAddr) error {
 }
 
 func (c *Client) Close() error {
-	close(c.identityCh)
-	close(c.listCh)
 	c.conn.Close()
 	return nil
 }
 
 func (c *Client) WhoAmI() (uint64, error) {
+	reader := bufio.NewReader(c.conn)
 	msg := message.NewIdentity()
 	_, err := c.conn.Write(msg.Marshal())
 	if err != nil {
 		return 0, fmt.Errorf("client: sending identity message failed: %s", err)
 	}
 
-	response := string(<-c.identityCh)
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		return 0, err
+	}
 	r := strings.TrimSpace(response)
 
 	id, err := strconv.Atoi(r)
@@ -64,15 +61,15 @@ func (c *Client) WhoAmI() (uint64, error) {
 }
 
 func (c *Client) ListClientIDs() ([]uint64, error) {
+	reader := bufio.NewReader(c.conn)
 	var ids []uint64
-
 	msg := message.NewList()
 	_, err := c.conn.Write(msg.Marshal())
 	if err != nil {
 		return ids, fmt.Errorf("client: sending list message failed: %s", err)
 	}
 
-	response := string(<-c.listCh)
+	response, err := reader.ReadString('\n')
 	r := strings.TrimSpace(response)
 
 	if r == "" {
@@ -112,49 +109,29 @@ func (c *Client) HandleIncomingMessages(writeCh chan<- IncomingMessage) {
 				return
 			}
 			msg = strings.TrimSpace(msg)
-			switch msg {
-			case message.IdentityMsgResponse:
-				identityRes, err := r.ReadString('\n')
-				if err != nil {
-					notify <- err
-					return
-				}
-				c.identityCh <- []byte(identityRes)
 
-			case message.ListMsgResponse:
-				listRes, err := r.ReadString('\n')
-				if err != nil {
-					notify <- err
-					return
-				}
-				c.listCh <- []byte(listRes)
-
-			case message.IncomingMsg:
-				s, err := r.ReadString('\n')
-				s = strings.TrimSpace(s)
-				if err != nil {
-					notify <- err
-					continue
-				}
-				sender, err := strconv.ParseUint(s, 10, 64)
-				if err != nil {
-					notify <- err
-					continue
-				}
-				body, err := r.ReadString('\n')
-				if err != nil {
-					notify <- err
-					continue
-				}
-				body = strings.TrimSpace(body)
-				body = fmt.Sprintf("%s", body)
-				// TODO: parse sender-id and payload
-				writeCh <- IncomingMessage{
-					SenderID: sender,
-					Body:     []byte(body),
-				}
-			default:
+			s, err := r.ReadString('\n')
+			s = strings.TrimSpace(s)
+			if err != nil {
+				notify <- err
 				continue
+			}
+			sender, err := strconv.ParseUint(s, 10, 64)
+			if err != nil {
+				notify <- err
+				continue
+			}
+			body, err := r.ReadString('\n')
+			if err != nil {
+				notify <- err
+				continue
+			}
+			body = strings.TrimSpace(body)
+			body = fmt.Sprintf("%s", body)
+			// TODO: parse sender-id and payload
+			writeCh <- IncomingMessage{
+				SenderID: sender,
+				Body:     []byte(body),
 			}
 
 		}

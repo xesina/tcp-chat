@@ -32,13 +32,13 @@ func (server Server) handleUnknown(c *context) error {
 func (server Server) handleIdentity(c *context) error {
 	log.Print("Received IDENTITY message")
 
-	clientId := fmt.Sprintf("%s\n%s\n", message.IdentityMsgResponse, strconv.FormatUint(c.id, 10))
+	clientId := fmt.Sprintf("%s\n", strconv.FormatUint(c.id, 10))
 
 	_, err := c.rw.WriteString(clientId)
+
 	if err != nil {
 		return err
 	}
-
 	err = c.rw.Flush()
 	if err != nil {
 		return err
@@ -59,7 +59,7 @@ func (server Server) handleList(c *context) error {
 	}
 
 	rawResponse := strings.Join(response, ",")
-	rawResponse = fmt.Sprintf("%s\n%s\n", message.ListMsgResponse, rawResponse)
+	rawResponse = fmt.Sprintf("%s\n", rawResponse)
 
 	_, err := c.rw.WriteString(rawResponse)
 	if err != nil {
@@ -79,7 +79,6 @@ func (server Server) handleSend(c *context) error {
 	if err != nil {
 		return err
 	}
-
 	if len(m.Recipients) == 0 {
 		_, err := c.rw.WriteString("invalid recipients")
 		if err != nil {
@@ -106,7 +105,7 @@ func (server Server) handleSend(c *context) error {
 	}
 	server.cl.RUnlock()
 
-	sendResponse := fmt.Sprintf("%s\nDONE\n", message.SendMsgResponse)
+	sendResponse := fmt.Sprintf("DONE\n")
 
 	_, err = c.rw.WriteString(sendResponse)
 	if err != nil {

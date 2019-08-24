@@ -23,13 +23,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	clientCh := make(chan client.IncomingMessage)
-	go cl.HandleIncomingMessages(clientCh)
-	go func() {
-		for d := range clientCh {
-			fmt.Printf("new message: sender: %d msg:%s\n", d.SenderID, string(d.Body))
-		}
-	}()
+	//clientCh := make(chan client.IncomingMessage)
+	//go cl.HandleIncomingMessages(clientCh)
+	//go func() {
+	//	for d := range clientCh {
+	//		fmt.Printf("new message: sender: %d msg:%s\n", d.SenderID, string(d.Body))
+	//	}
+	//}()
 
 	id, err := cl.WhoAmI()
 	if err != nil {

@@ -7,16 +7,22 @@ import (
 	"github.com/xesina/message-delivery/internal/server"
 	"net"
 	"testing"
+	"time"
 )
 
-const serverPort = 50000
+const serverPort = 50005
 
 func TestIntegration(t *testing.T) {
 	srv := server.New()
 
 	serverAddr := net.TCPAddr{Port: serverPort}
-	require.NoError(t, srv.Start(&serverAddr))
-	defer assertDoesNotError(t, srv.Stop)
+	go func() {
+		srv.Start(&serverAddr)
+	}()
+	//defer assertDoesNotError(t, srv.Stop)
+
+	// wait for server listen/bootstrap :)
+	time.Sleep(time.Second * 1)
 
 	// Create clients
 	client1 := createClientAndFetchID(t, 1)
@@ -37,15 +43,16 @@ func TestIntegration(t *testing.T) {
 	t.Run("List other clients from each client", func(t *testing.T) {
 		ids, err := client1.ListClientIDs()
 		assert.NoError(t, err)
-		assert.Equal(t, []uint64{2, 3}, ids)
+		// because using map we have no order guaranty
+		assert.ElementsMatch(t, []uint64{2, 3}, ids)
 
 		ids, err = client2.ListClientIDs()
 		assert.NoError(t, err)
-		assert.Equal(t, []uint64{1, 3}, ids)
+		assert.ElementsMatch(t, []uint64{1, 3}, ids)
 
 		ids, err = client3.ListClientIDs()
 		assert.NoError(t, err)
-		assert.Equal(t, []uint64{1, 2}, ids)
+		assert.ElementsMatch(t, []uint64{1, 2}, ids)
 	})
 
 	t.Run("Send message from the first client to the two other clients", func(t *testing.T) {

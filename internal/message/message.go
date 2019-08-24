@@ -12,13 +12,9 @@ import (
 )
 
 const (
-	responseMsg         = "RESPONSE"
 	IdentityMsg         = "IDENTITY"
-	IdentityMsgResponse = "IDENTITY-" + responseMsg
 	ListMsg             = "LIST"
-	ListMsgResponse     = "LIST-" + responseMsg
 	SendMsg             = "SEND"
-	SendMsgResponse     = "SEND-" + responseMsg
 	IncomingMsg         = "INCOMING"
 )
 

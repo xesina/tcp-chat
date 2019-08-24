@@ -22,14 +22,17 @@ type Server struct {
 
 	hl      *sync.RWMutex
 	handler map[string]HandleFunc
+
+	shutdown chan bool
 }
 
 func New() *Server {
 	s := &Server{
-		clients: make(map[net.Conn]uint64),
-		handler: make(map[string]HandleFunc),
-		cl:      &sync.RWMutex{},
-		hl:      &sync.RWMutex{},
+		clients:  make(map[net.Conn]uint64),
+		handler:  make(map[string]HandleFunc),
+		cl:       &sync.RWMutex{},
+		hl:       &sync.RWMutex{},
+		shutdown: make(chan bool),
 	}
 
 	s.registerHandlers()
@@ -77,6 +80,7 @@ func (server *Server) ListClientIDs() []uint64 {
 
 func (server *Server) Stop() error {
 	fmt.Println("Stop accepting connections and close the existing ones")
+	server.shutdown <- true
 	return server.listener.Close()
 }
 
@@ -141,6 +145,8 @@ func (server *Server) handleConnection(conn net.Conn) {
 
 	for {
 		select {
+		case <-server.shutdown:
+			break
 		case err := <-notify:
 			fmt.Println("server: got an error:", err)
 
