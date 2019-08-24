@@ -40,6 +40,7 @@ func New() *Server {
 func (server *Server) registerHandlers() {
 	server.HandleFunc(message.IdentityMsg, server.handleIdentity)
 	server.HandleFunc(message.ListMsg, server.handleList)
+	server.HandleFunc(message.SendMsg, server.handleSend)
 }
 
 func (server *Server) Start(laddr *net.TCPAddr) error {

@@ -68,7 +68,7 @@ func (suite *ServerTestSuite) TestRegisterHandlers() {
 
 	// to ensure each time we register handler we update the test to
 	// control the registration of the handlers
-	suite.Equal(2, l)
+	suite.Equal(3, l)
 }
 
 func (suite *ServerTestSuite) TestRegisterClient() {
@@ -134,7 +134,7 @@ func (suite *ServerTestSuite) TestHandleFunc() {
 	l := suite.handlersCount()
 
 	msgName := "testHandler"
-	testHandler := func(conn net.Conn) error { return nil }
+	testHandler := func(ctx *context) error { return nil }
 	suite.server.HandleFunc(msgName, testHandler)
 
 	newLen := suite.handlersCount()
@@ -161,6 +161,9 @@ func (suite *ServerTestSuite) TestHandleIdentity() {
 	err = cl.Connect(tcpAddr)
 	defer cl.Close()
 	suite.NoError(err)
+
+	clientCh := make(chan client.IncomingMessage)
+	go cl.HandleIncomingMessages(clientCh)
 
 	id, err := cl.WhoAmI()
 	suite.NoError(err)
@@ -222,6 +225,9 @@ func (suite *ServerTestSuite) TestHandleListWithSingleClient() {
 	defer cl.Close()
 	suite.NoError(err)
 
+	clCh := make(chan client.IncomingMessage)
+	go cl.HandleIncomingMessages(clCh)
+
 	ids, err := cl.ListClientIDs()
 	suite.NoError(err)
 	suite.ElementsMatch([]uint64{}, ids)
@@ -237,12 +243,18 @@ func (suite *ServerTestSuite) TestHandleListWithMultipleClient() {
 	defer cl1.Close()
 	suite.NoError(err)
 
+	cl1Ch := make(chan client.IncomingMessage)
+	go cl1.HandleIncomingMessages(cl1Ch)
+
 	cl2 := client.New()
 	tcpAddr, err = net.ResolveTCPAddr("tcp", testAddr)
 	suite.NoError(err)
 	err = cl2.Connect(tcpAddr)
 	defer cl2.Close()
 	suite.NoError(err)
+
+	cl2Ch := make(chan client.IncomingMessage)
+	go cl2.HandleIncomingMessages(cl2Ch)
 
 	cl3 := client.New()
 	tcpAddr, err = net.ResolveTCPAddr("tcp", testAddr)
@@ -251,6 +263,9 @@ func (suite *ServerTestSuite) TestHandleListWithMultipleClient() {
 	// manually close to test another case
 	err = cl3.Connect(tcpAddr)
 	suite.NoError(err)
+
+	cl3Ch := make(chan client.IncomingMessage)
+	go cl3.HandleIncomingMessages(cl3Ch)
 
 	time.Sleep(100 * time.Millisecond)
 

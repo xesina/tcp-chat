@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/xesina/message-delivery/internal/message"
+	"io"
 	"net"
 	"strconv"
 	"strings"
@@ -15,11 +16,16 @@ type IncomingMessage struct {
 }
 
 type Client struct {
-	conn net.Conn
+	conn       net.Conn
+	identityCh chan []byte
+	listCh     chan []byte
 }
 
 func New() *Client {
-	return &Client{}
+	return &Client{
+		identityCh: make(chan []byte),
+		listCh:     make(chan []byte),
+	}
 }
 
 func (c *Client) Connect(serverAddr *net.TCPAddr) error {
@@ -28,29 +34,28 @@ func (c *Client) Connect(serverAddr *net.TCPAddr) error {
 		return fmt.Errorf("client: connection failed: %s", err)
 	}
 	c.conn = conn
+
 	return nil
 }
 
 func (c *Client) Close() error {
+	close(c.identityCh)
+	close(c.listCh)
 	c.conn.Close()
 	return nil
 }
 
 func (c *Client) WhoAmI() (uint64, error) {
 	msg := message.NewIdentity()
-	response := bufio.NewReader(c.conn)
 	_, err := c.conn.Write(msg.Marshal())
 	if err != nil {
 		return 0, fmt.Errorf("client: sending identity message failed: %s", err)
 	}
 
-	r, err := response.ReadString(byte('\n'))
-	if err != nil {
-		return 0, err
-	}
-	r = strings.TrimSpace(r)
+	response := string(<-c.identityCh)
+	r := strings.TrimSpace(response)
 
-	id, err := strconv.Atoi(string(r))
+	id, err := strconv.Atoi(r)
 	if err != nil {
 		return 0, fmt.Errorf("client: inavlid id received from the server: %s", err)
 	}
@@ -62,18 +67,14 @@ func (c *Client) ListClientIDs() ([]uint64, error) {
 	var ids []uint64
 
 	msg := message.NewList()
-	response := bufio.NewReader(c.conn)
 	_, err := c.conn.Write(msg.Marshal())
 	if err != nil {
 		return ids, fmt.Errorf("client: sending list message failed: %s", err)
 	}
 
-	r, err := response.ReadString(byte('\n'))
-	if err != nil {
-		return ids, err
-	}
+	response := string(<-c.listCh)
+	r := strings.TrimSpace(response)
 
-	r = strings.TrimSpace(r)
 	if r == "" {
 		return ids, nil
 	}
@@ -91,10 +92,85 @@ func (c *Client) ListClientIDs() ([]uint64, error) {
 }
 
 func (c *Client) SendMsg(recipients []uint64, body []byte) error {
-	fmt.Println("TODO: Send the message to the server")
+	msg := message.NewSend(recipients, body)
+	_, err := c.conn.Write(msg.Marshal())
+	if err != nil {
+		return fmt.Errorf("client: sending message failed: %s", err)
+	}
 	return nil
 }
 
 func (c *Client) HandleIncomingMessages(writeCh chan<- IncomingMessage) {
-	fmt.Println("TODO: Handle the messages from the server")
+	notify := make(chan error)
+
+	go func() {
+		for {
+			r := bufio.NewReader(c.conn)
+			msg, err := r.ReadString('\n')
+			if err != nil {
+				notify <- err
+				return
+			}
+			msg = strings.TrimSpace(msg)
+			switch msg {
+			case message.IdentityMsgResponse:
+				identityRes, err := r.ReadString('\n')
+				if err != nil {
+					notify <- err
+					return
+				}
+				c.identityCh <- []byte(identityRes)
+
+			case message.ListMsgResponse:
+				listRes, err := r.ReadString('\n')
+				if err != nil {
+					notify <- err
+					return
+				}
+				c.listCh <- []byte(listRes)
+
+			case message.IncomingMsg:
+				s, err := r.ReadString('\n')
+				s = strings.TrimSpace(s)
+				if err != nil {
+					notify <- err
+					continue
+				}
+				sender, err := strconv.ParseUint(s, 10, 64)
+				if err != nil {
+					notify <- err
+					continue
+				}
+				body, err := r.ReadString('\n')
+				if err != nil {
+					notify <- err
+					continue
+				}
+				body = strings.TrimSpace(body)
+				body = fmt.Sprintf("%s", body)
+				// TODO: parse sender-id and payload
+				writeCh <- IncomingMessage{
+					SenderID: sender,
+					Body:     []byte(body),
+				}
+			default:
+				continue
+			}
+
+		}
+	}()
+
+	for {
+		select {
+		case err := <-notify:
+			fmt.Println("client: got an error:", err)
+
+			if err == io.EOF {
+				close(notify)
+				c.Close()
+				fmt.Println("client: connection dropped message", err)
+				return
+			}
+		}
+	}
 }

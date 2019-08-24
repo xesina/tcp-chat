@@ -71,3 +71,51 @@ func (server Server) handleList(c *context) error {
 	}
 	return nil
 }
+
+func (server Server) handleSend(c *context) error {
+	log.Print("Received Send message")
+	m := message.Send{}
+	err := m.Unmarshal(c.rw.Reader)
+	if err != nil {
+		return err
+	}
+
+	if len(m.Recipients) == 0 {
+		_, err := c.rw.WriteString("invalid recipients")
+		if err != nil {
+			return err
+		}
+	}
+
+	recipientsMap := make(map[uint64]struct{})
+	for _, id := range m.Recipients {
+		recipientsMap[id] = struct{}{}
+	}
+
+	server.cl.RLock()
+	for cl, id := range server.clients {
+		if _, ok := recipientsMap[id]; !ok {
+			continue
+		}
+		incoming := message.NewIncoming(c.id, m.Body)
+		_, err := cl.Write(incoming.Marshal())
+		if err != nil {
+			return err
+		}
+
+	}
+	server.cl.RUnlock()
+
+	sendResponse := fmt.Sprintf("%s\nDONE\n", message.SendMsgResponse)
+
+	_, err = c.rw.WriteString(sendResponse)
+	if err != nil {
+		return err
+	}
+
+	err = c.rw.Flush()
+	if err != nil {
+		return err
+	}
+	return nil
+}
