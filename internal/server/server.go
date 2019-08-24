@@ -1,11 +1,13 @@
 package server
 
 import (
+	"bufio"
 	"fmt"
 	"github.com/xesina/message-delivery/internal/message"
 	"io"
 	"log"
 	"net"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -95,7 +97,15 @@ func (server *Server) HandleFunc(name string, f HandleFunc) {
 	server.hl.Unlock()
 }
 
+func (server *Server) ClientId(conn net.Conn) uint64 {
+	server.cl.RLock()
+	defer server.cl.RUnlock()
+	return server.clients[conn]
+}
+
 func (server *Server) handleConnection(conn net.Conn) {
+	// Wrap the connection into a buffered reader for easier reading.
+	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 	defer conn.Close()
 	notify := make(chan error)
 
@@ -103,19 +113,24 @@ func (server *Server) handleConnection(conn net.Conn) {
 
 	go func() {
 		for {
-			msg, err := message.Read(conn)
+			msg, err := rw.ReadString('\n')
 			if err != nil {
 				notify <- err
 				return
 			}
-
+			msg = strings.ToUpper(strings.TrimSpace(msg))
 			server.hl.RLock()
 			handleCommand, ok := server.handler[msg]
 			server.hl.RUnlock()
 			if !ok {
 				handleCommand = server.handleUnknown
 			}
-			err = handleCommand(conn)
+
+			ctx := &context{
+				id: server.ClientId(conn),
+				rw: rw,
+			}
+			err = handleCommand(ctx)
 			if err != nil {
 				notify <- err
 			}
