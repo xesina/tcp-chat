@@ -17,9 +17,10 @@ func TestIntegration(t *testing.T) {
 
 	serverAddr := net.TCPAddr{Port: serverPort}
 	go func() {
-		srv.Start(&serverAddr)
+		err := srv.Start(&serverAddr)
+		require.NoError(t, err)
+		defer assert.NoError(t, srv.Stop())
 	}()
-	//defer assertDoesNotError(t, srv.Stop)
 
 	// wait for server listen/bootstrap :)
 	time.Sleep(time.Second * 1)

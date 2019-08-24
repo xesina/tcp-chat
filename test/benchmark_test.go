@@ -11,12 +11,19 @@ import (
 )
 
 const clientCount = 100
-const benchmarkServerPort = 50000
+const benchmarkServerPort = 50005
 
 func TestBenchmark(t *testing.T) {
 	srv := server.New()
 	serverAddr := net.TCPAddr{Port: benchmarkServerPort}
-	require.NoError(t, srv.Start(&serverAddr))
+	go func() {
+		err := srv.Start(&serverAddr)
+		require.NoError(t, err)
+		defer assert.NoError(t, srv.Stop())
+	}()
+
+	// wait for server listen/bootstrap :)
+	time.Sleep(time.Second * 1)
 
 	var clients []*client.Client
 	var clientChs []chan client.IncomingMessage
@@ -32,10 +39,6 @@ func TestBenchmark(t *testing.T) {
 		clients = append(clients, cli)
 		clientChs = append(clientChs, clientCh)
 	}
-
-	defer func() {
-		assert.NoError(t, srv.Stop())
-	}()
 
 	waitForClientsToConnect(t, srv)
 

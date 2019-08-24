@@ -31,16 +31,13 @@ func (suite *ServerTestSuite) SetupSuite() {
 
 	go func() {
 		err := suite.server.Start(tcpAddr)
+		defer suite.server.Stop()
 		if err != nil {
 			fmt.Println("starting server failed: ", err)
 			os.Exit(1)
 		}
 	}()
 
-}
-
-func (suite *ServerTestSuite) TearDownSuite() {
-	//suite.server.Stop()
 }
 
 func TestServerTestSuite(t *testing.T) {
