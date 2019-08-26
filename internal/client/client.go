@@ -16,11 +16,14 @@ type IncomingMessage struct {
 }
 
 type Client struct {
-	conn net.Conn
+	conn     net.Conn
+	shutdown chan bool
 }
 
 func New() *Client {
-	return &Client{}
+	return &Client{
+		shutdown: make(chan bool),
+	}
 }
 
 func (c *Client) Connect(serverAddr *net.TCPAddr) error {
@@ -34,6 +37,7 @@ func (c *Client) Connect(serverAddr *net.TCPAddr) error {
 }
 
 func (c *Client) Close() error {
+	close(c.shutdown)
 	c.conn.Close()
 	return nil
 }
@@ -100,8 +104,21 @@ func (c *Client) SendMsg(recipients []uint64, body []byte) error {
 func (c *Client) HandleIncomingMessages(writeCh chan<- IncomingMessage) {
 	notify := make(chan error)
 
-	go func() {
-		for {
+	for {
+		select {
+		case <-c.shutdown:
+			close(notify)
+			return
+		case err := <-notify:
+			fmt.Println("client: got an error:", err)
+
+			if err == io.EOF {
+				close(notify)
+				c.Close()
+				fmt.Println("client: connection dropped message", err)
+				return
+			}
+		default:
 			r := bufio.NewReader(c.conn)
 			msg, err := r.ReadString('\n')
 			if err != nil {
@@ -132,21 +149,6 @@ func (c *Client) HandleIncomingMessages(writeCh chan<- IncomingMessage) {
 			writeCh <- IncomingMessage{
 				SenderID: sender,
 				Body:     []byte(body),
-			}
-
-		}
-	}()
-
-	for {
-		select {
-		case err := <-notify:
-			fmt.Println("client: got an error:", err)
-
-			if err == io.EOF {
-				close(notify)
-				c.Close()
-				fmt.Println("client: connection dropped message", err)
-				return
 			}
 		}
 	}

@@ -93,7 +93,7 @@ func (server Server) handleSend(c *context) error {
 
 	server.cl.RLock()
 	for cl, id := range server.clients {
-		if _, ok := recipientsMap[id]; !ok {
+		if _, ok := recipientsMap[id]; !ok || id == c.id {
 			continue
 		}
 		incoming := message.NewIncoming(c.id, m.Body)
