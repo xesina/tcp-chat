@@ -6,15 +6,14 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/xesina/message-delivery/internal/message"
 	"io"
-	"log"
 	"net"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
 type Server struct {
+	debug    bool
 	logger   *logrus.Logger
 	listener *net.TCPListener
 
@@ -23,22 +22,28 @@ type Server struct {
 	clients map[net.Conn]uint64
 
 	hl      *sync.RWMutex
-	handler map[string]HandleFunc
+	handler map[string]HandlerFunc
 
 	shutdown chan bool
 }
 
 func New(debug bool) *Server {
 	s := &Server{
+		debug:    debug,
 		logger:   logrus.New(),
 		clients:  make(map[net.Conn]uint64),
-		handler:  make(map[string]HandleFunc),
+		handler:  make(map[string]HandlerFunc),
 		cl:       &sync.RWMutex{},
 		hl:       &sync.RWMutex{},
 		shutdown: make(chan bool),
 	}
 
-	if debug {
+	s.logger.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp:   true,
+		TimestampFormat: time.RFC3339,
+	})
+
+	if s.debug {
 		s.logger.SetLevel(logrus.DebugLevel)
 	}
 
@@ -54,8 +59,6 @@ func (server *Server) registerHandlers() {
 }
 
 func (server *Server) Start(laddr *net.TCPAddr) error {
-	fmt.Println("Start handling client connections and messages")
-
 	l, err := net.ListenTCP("tcp", laddr)
 	if err != nil {
 		return fmt.Errorf("error listening: %s", err)
@@ -64,15 +67,19 @@ func (server *Server) Start(laddr *net.TCPAddr) error {
 	defer l.Close()
 
 	fmt.Printf("Listening on %s:%d\n", laddr.IP, laddr.Port)
+	if server.debug {
+		fmt.Println("Server is running on debug mode.")
+	}
 
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			log.Fatal(err)
+			server.logger.Errorf("server: failed accepting a connection request: %s", err)
+			continue
 		}
+		server.logger.Debug("server: handle incoming connection")
 		go server.handleConnection(conn)
 	}
-	return nil
 }
 
 func (server *Server) ListClientIDs() []uint64 {
@@ -103,10 +110,25 @@ func (server *Server) deregisterClient(conn net.Conn) {
 	server.cl.Unlock()
 }
 
-func (server *Server) HandleFunc(name string, f HandleFunc) {
+func (server *Server) HandleFunc(name string, f HandlerFunc) {
 	server.hl.Lock()
 	server.handler[name] = f
 	server.hl.Unlock()
+}
+
+func (server *Server) HandleMessage(name string, ctx *context) error {
+	h, ok := server.Handler(name)
+	if !ok {
+		h = server.handleUnknown
+	}
+	return h(ctx)
+}
+
+func (server *Server) Handler(msg string) (HandlerFunc, bool) {
+	server.hl.RLock()
+	h, ok := server.handler[msg]
+	server.hl.RUnlock()
+	return h, ok
 }
 
 func (server *Server) ClientId(conn net.Conn) uint64 {
@@ -116,37 +138,26 @@ func (server *Server) ClientId(conn net.Conn) uint64 {
 }
 
 func (server *Server) handleConnection(conn net.Conn) {
-	// Wrap the connection into a buffered reader for easier reading.
 	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 	defer conn.Close()
+
 	notify := make(chan error)
-
 	server.registerClient(conn)
-
 	go func() {
 		for {
-			msg, err := rw.ReadString('\n')
+			msg, err := message.Read(rw.Reader)
 			if err != nil {
 				notify <- err
 				return
 			}
-			msg = strings.ToUpper(strings.TrimSpace(msg))
-			server.hl.RLock()
-			handleCommand, ok := server.handler[msg]
-			server.hl.RUnlock()
-			if !ok {
-				handleCommand = server.handleUnknown
-			}
-
 			ctx := &context{
 				id: server.ClientId(conn),
 				rw: rw,
 			}
-			err = handleCommand(ctx)
+			err = server.HandleMessage(msg, ctx)
 			if err != nil {
 				notify <- err
 			}
-
 		}
 	}()
 
@@ -155,18 +166,12 @@ func (server *Server) handleConnection(conn net.Conn) {
 		case <-server.shutdown:
 			break
 		case err := <-notify:
-			fmt.Println("server: got an error:", err)
-
+			server.logger.Debug("server: an error occurred: ", err)
 			if err == io.EOF {
+				server.logger.Debug("server: closing connection because: ", err)
 				server.deregisterClient(conn)
-				fmt.Println("server: connection dropped message", err)
 				return
 			}
-
-		case <-time.After(time.Second * 20):
-			server.cl.RLock()
-			fmt.Printf("server: connection id: %d still alive\n", server.clients[conn])
-			server.cl.RUnlock()
 		}
 	}
 }
