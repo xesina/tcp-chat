@@ -103,6 +103,7 @@ func (c *Client) SendMsg(recipients []uint64, body []byte) error {
 
 func (c *Client) HandleIncomingMessages(writeCh chan<- IncomingMessage) {
 	notify := make(chan error)
+	r := bufio.NewReader(c.conn)
 
 	for {
 		select {
@@ -119,7 +120,6 @@ func (c *Client) HandleIncomingMessages(writeCh chan<- IncomingMessage) {
 				return
 			}
 		default:
-			r := bufio.NewReader(c.conn)
 			msg, err := r.ReadString('\n')
 			if err != nil {
 				notify <- err

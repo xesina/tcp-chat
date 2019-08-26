@@ -23,7 +23,7 @@ type ServerTestSuite struct {
 }
 
 func (suite *ServerTestSuite) SetupSuite() {
-	suite.server = New()
+	suite.server = New(false)
 	tcpAddr, err := net.ResolveTCPAddr("tcp", testAddr)
 	if err != nil {
 		suite.FailNow("resolving address failed %s", err)
@@ -69,10 +69,6 @@ func (suite *ServerTestSuite) TestRegisterHandlers() {
 }
 
 func (suite *ServerTestSuite) TestRegisterClient() {
-	type connMock struct {
-		net.Conn
-	}
-
 	tt := []struct {
 		conn net.Conn
 	}{

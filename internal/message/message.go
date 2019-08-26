@@ -12,10 +12,10 @@ import (
 )
 
 const (
-	IdentityMsg         = "IDENTITY"
-	ListMsg             = "LIST"
-	SendMsg             = "SEND"
-	IncomingMsg         = "INCOMING"
+	IdentityMsg = "IDENTITY"
+	ListMsg     = "LIST"
+	SendMsg     = "SEND"
+	IncomingMsg = "INCOMING"
 )
 
 func ReadStringArg(r *bufio.Reader) (string, error) {

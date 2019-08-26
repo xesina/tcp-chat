@@ -13,7 +13,7 @@ import (
 const serverPort = 50005
 
 func TestIntegration(t *testing.T) {
-	srv := server.New()
+	srv := server.New(false)
 
 	serverAddr := net.TCPAddr{Port: serverPort}
 	go func() {

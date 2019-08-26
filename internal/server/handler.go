@@ -86,14 +86,14 @@ func (server Server) handleSend(c *context) error {
 		}
 	}
 
-	recipientsMap := make(map[uint64]struct{})
+	recipientsIDs := make(map[uint64]struct{})
 	for _, id := range m.Recipients {
-		recipientsMap[id] = struct{}{}
+		recipientsIDs[id] = struct{}{}
 	}
 
 	server.cl.RLock()
 	for cl, id := range server.clients {
-		if _, ok := recipientsMap[id]; !ok || id == c.id {
+		if _, ok := recipientsIDs[id]; !ok || id == c.id {
 			continue
 		}
 		incoming := message.NewIncoming(c.id, m.Body)

@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"github.com/xesina/message-delivery/internal/message"
 	"io"
 	"log"
@@ -14,6 +15,7 @@ import (
 )
 
 type Server struct {
+	logger   *logrus.Logger
 	listener *net.TCPListener
 
 	id      uint64
@@ -26,13 +28,18 @@ type Server struct {
 	shutdown chan bool
 }
 
-func New() *Server {
+func New(debug bool) *Server {
 	s := &Server{
+		logger:   logrus.New(),
 		clients:  make(map[net.Conn]uint64),
 		handler:  make(map[string]HandleFunc),
 		cl:       &sync.RWMutex{},
 		hl:       &sync.RWMutex{},
 		shutdown: make(chan bool),
+	}
+
+	if debug {
+		s.logger.SetLevel(logrus.DebugLevel)
 	}
 
 	s.registerHandlers()
