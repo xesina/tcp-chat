@@ -4,12 +4,16 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/xesina/message-delivery/internal/message"
-	"log"
 	"strconv"
 	"strings"
 )
 
-type HandleFunc func(*context) error
+const (
+	receiveLogTpl  = "server: received %s message"
+	responseLogTpl = "server: sent %s message response: %s"
+)
+
+type HandlerFunc func(*context) error
 
 type context struct {
 	id uint64
@@ -17,8 +21,10 @@ type context struct {
 }
 
 func (server Server) handleUnknown(c *context) error {
-	log.Print("Received UNKNOWN message")
-	_, err := c.rw.WriteString("unknown message\n")
+	server.logger.Debugf(receiveLogTpl, "UNKNOWN")
+
+	response := "UNKNOWN MESSAGE\n"
+	_, err := c.rw.WriteString(response)
 	if err != nil {
 		return err
 	}
@@ -26,11 +32,13 @@ func (server Server) handleUnknown(c *context) error {
 	if err != nil {
 		return err
 	}
+	server.logger.Debugf(responseLogTpl, "UNKNOWN", response[:len(response)-1])
+
 	return nil
 }
 
 func (server Server) handleIdentity(c *context) error {
-	log.Print("Received IDENTITY message")
+	server.logger.Debugf(receiveLogTpl, message.IdentityMsg)
 
 	clientId := fmt.Sprintf("%s\n", strconv.FormatUint(c.id, 10))
 
@@ -43,11 +51,13 @@ func (server Server) handleIdentity(c *context) error {
 	if err != nil {
 		return err
 	}
+	server.logger.Debugf(responseLogTpl, message.IdentityMsg, clientId[:len(clientId)-1])
+
 	return nil
 }
 
 func (server Server) handleList(c *context) error {
-	log.Print("Received LIST message")
+	server.logger.Debugf(receiveLogTpl, message.ListMsg)
 
 	ids := server.ListClientIDs()
 	var response []string
@@ -69,21 +79,42 @@ func (server Server) handleList(c *context) error {
 	if err != nil {
 		return err
 	}
+	server.logger.Debugf(responseLogTpl, message.ListMsg, rawResponse[:len(rawResponse)-1])
+
 	return nil
 }
 
 func (server Server) handleSend(c *context) error {
-	log.Print("Received Send message")
+	server.logger.Debugf(receiveLogTpl, message.SendMsg)
+
 	m := message.Send{}
 	err := m.Unmarshal(c.rw.Reader)
 	if err != nil {
 		return err
 	}
-	if len(m.Recipients) == 0 {
-		_, err := c.rw.WriteString("invalid recipients")
+
+	if len(m.Recipients) == 0 || len(m.Recipients) > 255 {
+		_, err := c.rw.WriteString("ERR RECIPIENTS 1-255\n")
 		if err != nil {
 			return err
 		}
+		err = c.rw.Flush()
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if len(m.Body) > 1<<20 {
+		_, err := c.rw.WriteString("ERR TOO LARGE BODY 1M\n")
+		if err != nil {
+			return err
+		}
+		err = c.rw.Flush()
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
 	recipientsIDs := make(map[uint64]struct{})
@@ -116,5 +147,7 @@ func (server Server) handleSend(c *context) error {
 	if err != nil {
 		return err
 	}
+	server.logger.Debugf(responseLogTpl, message.SendMsg, sendResponse[:len(sendResponse)-1])
+
 	return nil
 }
