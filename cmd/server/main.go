@@ -14,8 +14,8 @@ func main() {
 		debug bool
 	)
 
-	flag.IntVar(&port, "Server port", 50000, "Server port")
-	flag.BoolVar(&debug, "Debug mode", false, "Debug mode")
+	flag.IntVar(&port, "port", 50000, "Server port")
+	flag.BoolVar(&debug, "debug", false, "Debug mode")
 
 	flag.Parse()
 
