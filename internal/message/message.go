@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 )
@@ -36,14 +35,12 @@ func ReadBytesArg(r *bufio.Reader) ([]byte, error) {
 	return arg, nil
 }
 
-func Read(r io.Reader) (string, error) {
-	msg, err := bufio.NewReader(r).ReadString('\n')
+func Read(r *bufio.Reader) (string, error) {
+	msg, err := r.ReadString('\n')
 	if err != nil {
 		return "", err
 	}
-
 	msg = strings.ToUpper(strings.TrimSpace(msg))
-
 	return msg, nil
 }
 
