@@ -1,9 +1,11 @@
 package server
 
 import (
+	"bufio"
 	"fmt"
 	"github.com/stretchr/testify/suite"
 	"github.com/xesina/message-delivery/internal/client"
+	"github.com/xesina/message-delivery/internal/message"
 	"net"
 	"os"
 	"sync/atomic"
@@ -141,6 +143,24 @@ func (suite *ServerTestSuite) TestHandleFunc() {
 	suite.server.hl.Lock()
 	delete(suite.server.handler, msgName)
 	suite.server.hl.Unlock()
+}
+
+func (suite *ServerTestSuite) TestHandleUnknown() {
+	tcpAddr, err := net.ResolveTCPAddr("tcp", testAddr)
+	conn, err := net.DialTCP("tcp", nil, tcpAddr)
+	defer conn.Close()
+	suite.NoError(err)
+
+	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+
+	unknownMsg := "POOFF\n"
+	_, err = rw.WriteString(unknownMsg)
+	suite.NoError(err)
+	suite.NoError(rw.Flush())
+
+	response, err := message.ReadStringArg(rw.Reader)
+	suite.NoError(err)
+	suite.Equal("UNKNOWN MESSAGE", response)
 }
 
 func (suite *ServerTestSuite) TestHandleIdentity() {
