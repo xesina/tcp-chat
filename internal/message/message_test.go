@@ -19,7 +19,7 @@ func TestJoinRecipients(t *testing.T) {
 			"",
 		},
 		{
-			[]uint64{1,2,3,4},
+			[]uint64{1, 2, 3, 4},
 			"1,2,3,4",
 		},
 	}

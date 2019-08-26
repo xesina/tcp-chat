@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+// Server implements a TCP message server
 type Server struct {
 	debug    bool
 	logger   *logrus.Logger
@@ -27,6 +28,7 @@ type Server struct {
 	shutdown chan bool
 }
 
+// New creates and sets up a new server instance
 func New(debug bool) *Server {
 	s := &Server{
 		debug:    debug,
@@ -58,6 +60,8 @@ func (server *Server) registerHandlers() {
 	server.HandleFunc(message.SendMsg, server.handleSend)
 }
 
+// Start will bootstrap and starts the server and connection handling
+// loop.
 func (server *Server) Start(laddr *net.TCPAddr) error {
 	l, err := net.ListenTCP("tcp", laddr)
 	if err != nil {
@@ -82,6 +86,7 @@ func (server *Server) Start(laddr *net.TCPAddr) error {
 	}
 }
 
+// ListClientIDs returns the current active clients ids
 func (server *Server) ListClientIDs() []uint64 {
 	var ids []uint64
 	server.cl.RLock()
@@ -92,6 +97,7 @@ func (server *Server) ListClientIDs() []uint64 {
 	return ids
 }
 
+// Stop Stops accepting connections and close the existing ones
 func (server *Server) Stop() error {
 	fmt.Println("Stop accepting connections and close the existing ones")
 	server.shutdown <- true
@@ -110,12 +116,14 @@ func (server *Server) deregisterClient(conn net.Conn) {
 	server.cl.Unlock()
 }
 
+// HandleFunc registers a new message with associated handler
 func (server *Server) HandleFunc(name string, f HandlerFunc) {
 	server.hl.Lock()
 	server.handler[name] = f
 	server.hl.Unlock()
 }
 
+// HandleMessage finds the appropriate handler based on msg and passes control to it
 func (server *Server) HandleMessage(name string, ctx *context) error {
 	h, ok := server.Handler(name)
 	if !ok {
@@ -124,6 +132,7 @@ func (server *Server) HandleMessage(name string, ctx *context) error {
 	return h(ctx)
 }
 
+// Handler returns the Handler associated with a msg
 func (server *Server) Handler(msg string) (HandlerFunc, bool) {
 	server.hl.RLock()
 	h, ok := server.handler[msg]
@@ -131,7 +140,8 @@ func (server *Server) Handler(msg string) (HandlerFunc, bool) {
 	return h, ok
 }
 
-func (server *Server) ClientId(conn net.Conn) uint64 {
+// ClientID returns the unsigned integer  associated with client connection
+func (server *Server) ClientID(conn net.Conn) uint64 {
 	server.cl.RLock()
 	defer server.cl.RUnlock()
 	return server.clients[conn]
@@ -151,7 +161,7 @@ func (server *Server) handleConnection(conn net.Conn) {
 				return
 			}
 			ctx := &context{
-				id: server.ClientId(conn),
+				id: server.ClientID(conn),
 				rw: rw,
 			}
 			err = server.HandleMessage(msg, ctx)

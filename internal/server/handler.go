@@ -13,6 +13,7 @@ const (
 	responseLogTpl = "server: sent %s message response: %s"
 )
 
+// HandlerFunc is a message/command handler
 type HandlerFunc func(*context) error
 
 type context struct {
@@ -40,9 +41,9 @@ func (server Server) handleUnknown(c *context) error {
 func (server Server) handleIdentity(c *context) error {
 	server.logger.Debugf(receiveLogTpl, message.IdentityMsg)
 
-	clientId := fmt.Sprintf("%s\n", strconv.FormatUint(c.id, 10))
+	clientID := fmt.Sprintf("%s\n", strconv.FormatUint(c.id, 10))
 
-	_, err := c.rw.WriteString(clientId)
+	_, err := c.rw.WriteString(clientID)
 
 	if err != nil {
 		return err
@@ -51,7 +52,7 @@ func (server Server) handleIdentity(c *context) error {
 	if err != nil {
 		return err
 	}
-	server.logger.Debugf(responseLogTpl, message.IdentityMsg, clientId[:len(clientId)-1])
+	server.logger.Debugf(responseLogTpl, message.IdentityMsg, clientID[:len(clientID)-1])
 
 	return nil
 }

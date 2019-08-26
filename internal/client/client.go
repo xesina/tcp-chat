@@ -10,22 +10,27 @@ import (
 	"strings"
 )
 
+// IncomingMessage represents an incoming msg to a client
 type IncomingMessage struct {
 	SenderID uint64
 	Body     []byte
 }
 
+// Client is implements request side of message protocol to easily connect
+// and communicate with server
 type Client struct {
 	conn     net.Conn
 	shutdown chan bool
 }
 
+// New creates and returns a new Client
 func New() *Client {
 	return &Client{
 		shutdown: make(chan bool),
 	}
 }
 
+// Connect will try to connect to the TCP server at the given address and port
 func (c *Client) Connect(serverAddr *net.TCPAddr) error {
 	conn, err := net.DialTCP("tcp", nil, serverAddr)
 	if err != nil {
@@ -36,12 +41,15 @@ func (c *Client) Connect(serverAddr *net.TCPAddr) error {
 	return nil
 }
 
+// Close will terminates connection to the server
 func (c *Client) Close() error {
 	close(c.shutdown)
 	c.conn.Close()
 	return nil
 }
 
+// WhoAmI will sends a IDENTITY msg to server and returns the current
+// client id
 func (c *Client) WhoAmI() (uint64, error) {
 	reader := bufio.NewReader(c.conn)
 	msg := message.NewIdentity()
@@ -64,6 +72,7 @@ func (c *Client) WhoAmI() (uint64, error) {
 	return uint64(id), nil
 }
 
+// ListClientIDs lists all clients connected to server
 func (c *Client) ListClientIDs() ([]uint64, error) {
 	reader := bufio.NewReader(c.conn)
 	var ids []uint64
@@ -92,6 +101,7 @@ func (c *Client) ListClientIDs() ([]uint64, error) {
 	return ids, nil
 }
 
+// SendMsg sends a message using SEND msg with given ids and the payload
 func (c *Client) SendMsg(recipients []uint64, body []byte) error {
 	msg := message.NewSend(recipients, body)
 	_, err := c.conn.Write(msg.Marshal())
@@ -101,6 +111,9 @@ func (c *Client) SendMsg(recipients []uint64, body []byte) error {
 	return nil
 }
 
+// HandleIncomingMessages once this method called this client switches to receive
+// only mode and receives and decodes the INCOMING msg sent to the client and
+// will forward the received msg to the given write-only channel.
 func (c *Client) HandleIncomingMessages(writeCh chan<- IncomingMessage) {
 	notify := make(chan error)
 	r := bufio.NewReader(c.conn)

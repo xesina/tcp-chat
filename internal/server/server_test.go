@@ -56,7 +56,7 @@ func (suite *ServerTestSuite) handlersCount() int {
 	return len(suite.server.handler)
 }
 
-func (suite *ServerTestSuite) resetIdCounter() {
+func (suite *ServerTestSuite) resetIDCounter() {
 	atomic.StoreUint64(&suite.server.id, 0)
 }
 
@@ -144,7 +144,7 @@ func (suite *ServerTestSuite) TestHandleFunc() {
 }
 
 func (suite *ServerTestSuite) TestHandleIdentity() {
-	suite.resetIdCounter()
+	suite.resetIDCounter()
 
 	cl := client.New()
 
@@ -187,7 +187,7 @@ func (suite *ServerTestSuite) TestListClientIDs() {
 	}
 
 	for _, tc := range tt {
-		suite.resetIdCounter()
+		suite.resetIDCounter()
 
 		for _, conn := range tc.conns {
 			suite.server.registerClient(conn)
@@ -204,7 +204,7 @@ func (suite *ServerTestSuite) TestListClientIDs() {
 }
 
 func (suite *ServerTestSuite) TestHandleListWithSingleClient() {
-	suite.resetIdCounter()
+	suite.resetIDCounter()
 
 	cl := client.New()
 
@@ -221,7 +221,7 @@ func (suite *ServerTestSuite) TestHandleListWithSingleClient() {
 }
 
 func (suite *ServerTestSuite) TestHandleListWithMultipleClient() {
-	suite.resetIdCounter()
+	suite.resetIDCounter()
 
 	cl1 := client.New()
 	tcpAddr, err := net.ResolveTCPAddr("tcp", testAddr)
@@ -255,7 +255,7 @@ func (suite *ServerTestSuite) TestHandleListWithMultipleClient() {
 }
 
 func (suite *ServerTestSuite) TestSendToOneClient() {
-	suite.resetIdCounter()
+	suite.resetIDCounter()
 
 	cl1 := client.New()
 	tcpAddr, err := net.ResolveTCPAddr("tcp", testAddr)
@@ -280,18 +280,18 @@ func (suite *ServerTestSuite) TestSendToOneClient() {
 	time.Sleep(100 * time.Millisecond)
 
 	receiver := uint64(1)
-	expectedSenderId := uint64(2)
+	expectedSenderID := uint64(2)
 	expectedBody := "Hello"
 
 	err = cl2.SendMsg([]uint64{receiver}, []byte(expectedBody))
 	suite.NoError(err)
 	incomingFromCl2 := <-cl1Ch
-	suite.Equal(incomingFromCl2.SenderID, expectedSenderId)
+	suite.Equal(incomingFromCl2.SenderID, expectedSenderID)
 	suite.Equal(string(incomingFromCl2.Body), expectedBody)
 }
 
 func (suite *ServerTestSuite) TestSendToTwoClient() {
-	suite.resetIdCounter()
+	suite.resetIDCounter()
 
 	cl1 := client.New()
 	tcpAddr, err := net.ResolveTCPAddr("tcp", testAddr)
@@ -326,17 +326,17 @@ func (suite *ServerTestSuite) TestSendToTwoClient() {
 	time.Sleep(100 * time.Millisecond)
 
 	receivers := []uint64{1, 2}
-	expectedSenderId := uint64(3)
+	expectedSenderID := uint64(3)
 	expectedBody := "Hello"
 
 	err = cl3.SendMsg(receivers, []byte(expectedBody))
 	suite.NoError(err)
 
 	incomingFromCl3 := <-cl1Ch
-	suite.Equal(incomingFromCl3.SenderID, expectedSenderId)
+	suite.Equal(incomingFromCl3.SenderID, expectedSenderID)
 	suite.Equal(string(incomingFromCl3.Body), expectedBody)
 
 	incomingFromCl2 := <-cl2Ch
-	suite.Equal(incomingFromCl2.SenderID, expectedSenderId)
+	suite.Equal(incomingFromCl2.SenderID, expectedSenderID)
 	suite.Equal(string(incomingFromCl2.Body), expectedBody)
 }

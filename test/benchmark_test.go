@@ -68,7 +68,7 @@ func TestBenchmark(t *testing.T) {
 				}
 			}
 		})
-		t.Logf("Long message benchmark\n%s %s\n", result.String(),  result.MemString())
+		t.Logf("Long message benchmark\n%s %s\n", result.String(), result.MemString())
 	})
 }
 
