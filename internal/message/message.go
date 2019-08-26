@@ -111,6 +111,7 @@ func (m *Send) Unmarshal(r *bufio.Reader) error {
 	for _, recipientID := range rr {
 		id, err := strconv.ParseUint(recipientID, 10, 64)
 		if err != nil {
+			m.Recipients = nil
 			return err
 		}
 		m.Recipients = append(m.Recipients, id)
@@ -118,6 +119,7 @@ func (m *Send) Unmarshal(r *bufio.Reader) error {
 
 	m.Body, err = ReadBytesArg(r)
 	if err != nil {
+		m.Body = nil
 		return err
 	}
 	return nil
