@@ -3,7 +3,7 @@ package server
 import (
 	"bufio"
 	"fmt"
-	"github.com/xesina/message-delivery/internal/message"
+	"github.com/xesina/tcp-chat/internal/message"
 	"strconv"
 	"strings"
 )

@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/xesina/message-delivery/internal/server"
+	"github.com/xesina/tcp-chat/internal/server"
 	"net"
 	"os"
 )

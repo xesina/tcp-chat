@@ -1,4 +1,4 @@
-module github.com/xesina/message-delivery
+module github.com/xesina/tcp-chat
 
 go 1.12
 

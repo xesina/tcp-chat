@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"github.com/xesina/message-delivery/internal/message"
+	"github.com/xesina/tcp-chat/internal/message"
 	"io"
 	"net"
 	"sync"

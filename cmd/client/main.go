@@ -3,8 +3,8 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/xesina/message-delivery/internal/client"
-	"github.com/xesina/message-delivery/internal/message"
+	"github.com/xesina/tcp-chat/internal/client"
+	"github.com/xesina/tcp-chat/internal/message"
 	"net"
 	"os"
 	"strconv"
